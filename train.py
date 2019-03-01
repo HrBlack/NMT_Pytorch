@@ -80,7 +80,7 @@ def main(args):
     valid_dataset = load_data(split='valid')
 
     # Build model and optimization criterion
-    model = models.build_model(args, src_dict, tgt_dict)
+    model = models.build_model(args, src_dict, tgt_dict)  # Call the classmethod build_model without initialization
     logging.info('Built a model with {:d} parameters'.format(sum(p.numel() for p in model.parameters())))
     criterion = nn.CrossEntropyLoss(ignore_index=src_dict.pad_idx, reduction='sum')
     if args.cuda:
@@ -125,6 +125,11 @@ def main(args):
             '''
             ___QUESTION-1-DESCRIBE-F-START___
             Describe what the following lines of code do.
+            
+            Feed sample data into our model, and get the output.
+            Calculate the average cross entropy loss over each source example.
+            Then normalize all the parameters in the model.
+            Eventually, optimize the model for one step.
             '''
             output, _ = model(sample['src_tokens'], sample['src_lengths'], sample['tgt_inputs'])
             loss = \

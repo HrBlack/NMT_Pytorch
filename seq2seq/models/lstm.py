@@ -70,7 +70,7 @@ class LSTMModel(Seq2SeqModel):
                               pretrained_embedding=decoder_pretrained_embedding,
                               use_attention=bool(eval(args.decoder_use_attention)),
                               use_lexical_model=bool(eval(args.decoder_use_lexical_model)))
-        return cls(encoder, decoder)
+        return cls(encoder, decoder)  # return the class LSTMModel (then super to the Seq2SeqModel class)
 
 
 class LSTMEncoder(Seq2SeqEncoder):
@@ -120,6 +120,7 @@ class LSTMEncoder(Seq2SeqEncoder):
         packed_source_embeddings = nn.utils.rnn.pack_padded_sequence(src_embeddings, src_lengths)
 
         # Pass source input through the recurrent layer(s)
+        # h,c dimension: (num_layers * num_directions, batch, hidden_size)
         packed_outputs, (final_hidden_states, final_cell_states) = self.lstm(packed_source_embeddings)
 
         # Unpack LSTM outputs and optionally apply dropout (dropout currently disabled)
@@ -131,13 +132,17 @@ class LSTMEncoder(Seq2SeqEncoder):
         ___QUESTION-1-DESCRIBE-A-START___
         Describe what happens when self.bidirectional is set to True. 
         What is the difference between final_hidden_states and final_cell_states?
+        
+        If self.bidirectional is set to True, then concatenate hidden states and cell states of forward and reverse LSTM
+        together on the 'batch' dimension, and make sure they come from the same hidden layer. For now the dimension of 
+        final_hidden_states and final_cell_states are both [num_layers, batch, 2 * hidden_size]
+        (TBC)
         '''
         if self.bidirectional:
             def combine_directions(outs):
                 return torch.cat([outs[0: outs.size(0): 2], outs[1: outs.size(0): 2]], dim=2)
             final_hidden_states = combine_directions(final_hidden_states)
             final_cell_states = combine_directions(final_cell_states)
-        '''___QUESTION-1-DESCRIBE-A-END___'''
 
         # Generate mask zeroing-out padded positions in encoder inputs
         src_mask = src_tokens.eq(self.dictionary.pad_idx)
@@ -161,20 +166,24 @@ class AttentionLayer(nn.Module):
 
         # Get attention scores
         encoder_out = encoder_out.transpose(1, 0)
+        # encoder_out: [batch_size, src_time_steps, output_dims]
         attn_scores = self.score(tgt_input, encoder_out)
 
         '''
         ___QUESTION-1-DESCRIBE-B-START___
         Describe how the attention context vector is calculated. Why do we need to apply a mask to the attention scores?
+        
+        Attention context vector is a weighted sum of attn_context, weighted by attn_weights
+        Since when we translate a word on the target side we don't need the information behind the word, then mask 
+        vector is needed to ensure the zero probability of these latter words
         '''
         if src_mask is not None:
-            src_mask = src_mask.unsqueeze(dim=1)
+            src_mask = src_mask.unsqueeze(dim=1)  # insert one another dimension at dim=1:[src_time_steps, 1, batch]
             attn_scores.masked_fill_(src_mask, float('-inf'))
         attn_weights = F.softmax(attn_scores, dim=-1)
         attn_context = torch.bmm(attn_weights, encoder_out).squeeze(dim=1)
         context_plus_hidden = torch.cat([tgt_input, attn_context], dim=1)
         attn_out = torch.tanh(self.context_plus_hidden_projection(context_plus_hidden))
-        '''___QUESTION-1-DESCRIBE-B-END___'''
 
         return attn_out, attn_weights.squeeze(dim=1)
 
@@ -185,11 +194,18 @@ class AttentionLayer(nn.Module):
         ___QUESTION-1-DESCRIBE-C-START___
         How are attention scores calculated? What role does matrix multiplication (i.e. torch.bmm()) play 
         in aligning encoder and decoder representations?
+        
+        Firstly, we do linear transformation by multiplying the output of encoder 'encoder_out' using torch.nn.linear, 
+        and then exchange the first and second dimension of the product. At this moment, projected_encoder_put is 
+        [batch, input_dims, src_time_steps]. torch.bmm() applies the dot production to the tgt_input and 
+        projected_encoder_out.
+        attn_scores is a tensor with shape [batch, 1, src_time_steps], corresponding to a list of attention scores 
+        between all the outputs of encoder and one single decoder input
         '''
         projected_encoder_out = self.src_projection(encoder_out).transpose(2, 1)
+        # after unsqueezing, tgt_input:[batch, 1, input_dims]
         attn_scores = torch.bmm(tgt_input.unsqueeze(dim=1), projected_encoder_out)
-        '''___QUESTION-1-DESCRIBE-C-END___'''
-
+        # bmm is a matrix multiplication of elements with dimensions: [batch, a, b], [batch, b, c]
         return attn_scores
 
 
@@ -295,6 +311,15 @@ class LSTMDecoder(Seq2SeqDecoder):
             ___QUESTION-1-DESCRIBE-E-START___
             How is attention integrated into the decoder? Why is the attention function given the previous 
             target state as one of its inputs? What is the purpose of the dropout layer?
+            
+            Once the attention vector is calculated, it's concatenated with decoder hidden states 
+            'tat_hidden_states[-1]', then their combination will go through a non-linear layer with tanh activation and
+            produce the decoder output;
+            The reason why attention function takes the previous target state as input is that, at different step, the
+            model is supposed to attend to different part of source side information. Hence, the target state is needed 
+            to capture specific features for each target output.
+            The dropout layer is used to avoid overfitting (TBC)          
+            
             '''
             if self.attention is None:
                 input_feed = tgt_hidden_states[-1]
