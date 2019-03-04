@@ -126,10 +126,12 @@ def main(args):
             ___QUESTION-1-DESCRIBE-F-START___
             Describe what the following lines of code do.
             
-            Feed sample data into our model, and get the output.
-            Calculate the average cross entropy loss over each source example.
+            Feed sample data into our model, and get the output of the defined forward computational graph.
+            Calculate the average cross entropy loss over each source batch.
+            Calculate the back propagation of each parameter.
             Then normalize all the parameters in the model.
-            Eventually, optimize the model for one step.
+            Eventually, optimize the model over one step using the computed gradients and initialize gradients in optimizer
+            to 0.
             '''
             output, _ = model(sample['src_tokens'], sample['src_lengths'], sample['tgt_inputs'])
             loss = \
