@@ -1,26 +1,34 @@
 import pickle
 import numpy as np
 import matplotlib.pyplot as plt
+import re
+
+src_file = '/Users/liushihao/Desktop/NMT_Pytorch/raw_data/train.jp'
+tgt_file = '/Users/liushihao/Desktop/NMT_Pytorch/raw_data/train.en'
+SPACE_NORMALIZER = re.compile("\s+")
+tgt_sizes = []
+src_sizes = []
+src_dataset = []
+tgt_dataset = []
+
+with open(tgt_file, 'r') as f:
+    for line in f:
+        line = SPACE_NORMALIZER.sub(" ", line).strip().split()
+        # print(line)
+        np.array([tgt_sizes.append(len(line))])
+        tgt_dataset.extend(line)
+    print(np.mean(tgt_sizes))
+
+with open(src_file, 'r') as f:
+    for line in f:
+        line = SPACE_NORMALIZER.sub(" ", line).strip().split()
+        # print(line)
+        np.array([src_sizes.append(len(line))])
+        src_dataset.extend(line)
+    print(np.mean(src_sizes))
 
 
-src_file = '/Users/liushihao/Desktop/NMT_Pytorch/prepared_data/train.jp'
-tgt_file = '/Users/liushihao/Desktop/NMT_Pytorch/prepared_data/train.en'
 
-with open(src_file, 'rb') as f:
-    src_dataset = pickle.load(f)
-    src_sizes = np.array([len(tokens) for tokens in src_dataset])
-    type_src = np.array([i for t in src_dataset for i in t ])
-    type_src = np.unique(type_src)
-    print(type_src)
-    print(len(type_src))
-
-with open(tgt_file, 'rb') as f:
-    tgt_dataset = pickle.load(f)
-    tgt_sizes = np.array([len(tokens) for tokens in tgt_dataset])
-    type_tgt = np.array([i for t in tgt_dataset for i in t ])
-    type_tgt = np.unique(type_tgt)
-    print(type_tgt)
-    print(len(type_tgt))
 fig, ax = plt.subplots()
 n_src, bin_src, _ = ax.hist(src_sizes, bins=100, label='Japanese', alpha=0.5, color='b')
 n_tgt, bin_tgt, _ = ax.hist(tgt_sizes, bins=100, label='English', alpha=0.5, color='r')
@@ -30,7 +38,6 @@ ax.legend(loc='right')
 ax.set_title('Distribution of sentence length in English and Japanese')
 ax.set_xlabel('Sentence length')
 ax.set_ylabel('Number of sentences')
-plt.savefig('q2.pdf')
 plt.show()
 # tokens_src = sum(src_sizes)
 # tokens_tgt = sum(tgt_sizes)

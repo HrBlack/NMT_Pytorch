@@ -129,10 +129,6 @@ class LSTMEncoder(Seq2SeqEncoder):
         assert list(lstm_output.size()) == [src_time_steps, batch_size, self.output_dim]  # sanity check
 
         '''
-        ___QUESTION-1-DESCRIBE-A-START___
-        Describe what happens when self.bidirectional is set to True. 
-        What is the difference between final_hidden_states and final_cell_states?
-        
         If self.bidirectional is set to True, then concatenate hidden states and cell states of forward and reverse LSTM
         together on the 'batch' dimension, and make sure they come from the same hidden layer. For now the dimension of 
         final_hidden_states and final_cell_states are both [num_layers, batch, 2 * hidden_size];
@@ -171,9 +167,6 @@ class AttentionLayer(nn.Module):
         attn_scores = self.score(tgt_input, encoder_out)
 
         '''
-        ___QUESTION-1-DESCRIBE-B-START___
-        Describe how the attention context vector is calculated. Why do we need to apply a mask to the attention scores?
-        
         Attention context vector is a weighted sum of attn_context, weighted by attn_weights
         The data is trained batch by batch, and all sequence in each mini-batch should have the same sequence length.
         Hence we need to pad the short sentences with padding_index.
@@ -194,13 +187,9 @@ class AttentionLayer(nn.Module):
         """ Computes attention scores. """
 
         '''
-        ___QUESTION-1-DESCRIBE-C-START___
-        How are attention scores calculated? What role does matrix multiplication (i.e. torch.bmm()) play 
-        in aligning encoder and decoder representations?
-        
         Firstly, we do linear transformation by multiplying the output of encoder 'encoder_out' using torch.nn.linear, 
         and then exchange the first and second dimension of the product. At this moment, projected_encoder_output is 
-        [batch, input_dims, src_time_steps]. And the tgt_input's dimention is [batch, 1, input_dims].
+        [batch, input_dims, src_time_steps]. And the tgt_input's dimension is [batch, 1, input_dims].
         torch.bmm() applies the dot production to the tgt_input and projected_encoder_out by aligning the dimension of 
         hidden states, which means that tgt_input will dot product with each column (time step) of projected_encoder_out.
         attn_scores is a tensor with shape [batch, 1, src_time_steps], corresponding to a list of attention scores 
@@ -280,9 +269,6 @@ class LSTMDecoder(Seq2SeqDecoder):
 
         # Initialize previous states (or retrieve from cache during incremental generation)
         '''
-        ___QUESTION-1-DESCRIBE-D-START___
-        Describe how the decoder state is initialized. When is cached_state == None? What role does input_feed play?
-        
         To initialize the decoder state, the decoder construct a matrix full of 0 with the dimension: [batch, hidden_size].
         The cached_state would be None when the model mode is set to be 'train', and when the model mode is 'evaluation'
         without beam search. Under this circumstance, the model won't cache any previous state, and then the decoder state
@@ -297,7 +283,6 @@ class LSTMDecoder(Seq2SeqDecoder):
             tgt_hidden_states = [torch.zeros(tgt_inputs.size()[0], self.hidden_size) for i in range(len(self.layers))]
             tgt_cell_states = [torch.zeros(tgt_inputs.size()[0], self.hidden_size) for i in range(len(self.layers))]
             input_feed = tgt_embeddings.data.new(batch_size, self.hidden_size).zero_()
-        '''___QUESTION-1-DESCRIBE-D-END___'''
 
         # Initialize attention output node
         attn_weights = tgt_embeddings.data.new(batch_size, tgt_time_steps, src_time_steps).zero_()
@@ -320,10 +305,6 @@ class LSTMDecoder(Seq2SeqDecoder):
                 lstm_input = F.dropout(tgt_hidden_states[layer_id], p=self.dropout_out, training=self.training)
 
             '''
-            ___QUESTION-1-DESCRIBE-E-START___
-            How is attention integrated into the decoder? Why is the attention function given the previous 
-            target state as one of its inputs? What is the purpose of the dropout layer?
-            
             Once the attention vector is calculated, it's concatenated with decoder hidden states 
             'tat_hidden_states[-1]', then their combination will go through a non-linear layer with tanh activation and
             produce the decoder output; Another place where attention vector integrates with docoder is that to concatenate
@@ -344,20 +325,7 @@ class LSTMDecoder(Seq2SeqDecoder):
                 attn_weights[:, j, :] = step_attn_weights
 
                 if self.use_lexical_model:
-                    # __QUESTION: Compute and collect LEXICAL MODEL context vectors here
-                    # TODO: --------------------------------------------------------------------- CUT
-                    pass
-                    # TODO: --------------------------------------------------------------------- /CUT
-                    # def forward(self, tgt_input, encoder_out, src_mask):
-
-                    # tgt_input has shape = [batch_size, input_dims]
-                    # encoder_out has shape = [src_time_steps, batch_size, output_dims]
-                    # src_mask has shape = [src_time_steps, batch_size]
-
-                    # print(src_embeddings.size())
-                    # src_embeddings: [batch_size, src_time_steps, num_features]
-                    # a = AttentionLayer(64, 128)
-                    # attn_scores = a.score(tgt_hidden_states[-1], src_embeddings)
+                    # Compute and collect LEXICAL MODEL context vectors here
 
                     if src_mask is not None:
                         src_mask = src_mask.unsqueeze(
@@ -369,7 +337,6 @@ class LSTMDecoder(Seq2SeqDecoder):
                     # print(attn_out.size())
             input_feed = F.dropout(input_feed, p=self.dropout_out, training=self.training)
             rnn_outputs.append(input_feed)
-            '''___QUESTION-1-DESCRIBE-E-END___'''
 
         # Cache previous states (only used during incremental, auto-regressive generation)
         utils.set_incremental_state(
@@ -385,9 +352,7 @@ class LSTMDecoder(Seq2SeqDecoder):
         decoder_output = self.final_projection(decoder_output)
 
         if self.use_lexical_model:
-            # __QUESTION: Incorporate the LEXICAL MODEL into the prediction of target tokens here
-            pass
-            # TODO: --------------------------------------------------------------------- /CUT
+            # Incorporate the LEXICAL MODEL into the prediction of target tokens here
             # decoder_output = torch.cat(rnn_outputs, dim=0).view(tgt_time_steps, batch_size, self.hidden_size)
             decoder_output += self.lexical_projection(attn_out)
 

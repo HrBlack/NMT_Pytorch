@@ -123,9 +123,6 @@ def main(args):
             model.train()
 
             '''
-            ___QUESTION-1-DESCRIBE-F-START___
-            Describe what the following lines of code do.
-            
             Feed sample data into our model, and get the output of the defined forward computational graph.
             Calculate the average cross entropy loss over each source batch.
             Calculate the back propagation of each parameter.
@@ -140,7 +137,6 @@ def main(args):
             grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip_norm)
             optimizer.step()
             optimizer.zero_grad()
-            '''___QUESTION-1-DESCRIBE-F-END___'''
 
             # Update statistics for progress bar
             total_loss, num_tokens, batch_size = loss.item(), sample['num_tokens'], len(sample['src_tokens'])
